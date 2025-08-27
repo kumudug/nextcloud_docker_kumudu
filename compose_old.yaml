@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # Note: MariaDB is an external service. You can find more information about the configuration here:
   # https://hub.docker.com/_/mariadb
@@ -53,6 +51,7 @@ services:
     depends_on:
       - db
       - redis
+      - proxy
     networks:
       - proxy-tier
       - default
@@ -74,27 +73,93 @@ services:
       - db
       - redis
 
-  npm:
-    image: jc21/nginx-proxy-manager:latest
-    container_name: nginx-proxy-manager
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "81:81"   # NPM admin UI
-      - "443:443"
-    volumes:
-      - ./proxy_data:/data
-      - ./proxy_letsencrypt:/etc/letsencrypt
-    networks:
-      - proxy-tier
-
   static-site:
     build: ./simple_static_webpage
     container_name: static-site
+    expose:
+      - 80
+    environment:
+      # - VIRTUAL_HOST=ddns.kgune.com
+      # - LETSENCRYPT_HOST=ddns.kgune.com
+      # - LETSENCRYPT_EMAIL=kum.kgune@gmail.com
     restart: unless-stopped
+    depends_on:
+      - proxy
     networks:
       - proxy-tier
+      - default
+
+# # Note: Nginx-proxy is an external service. You can find more information about the configuration here:
+# # Warning: Do not use :latest tags of nginx-proxy unless absolutely sure about the consequences.
+# # https://hub.docker.com/r/nginxproxy/nginx-proxy
+# proxy:
+#   build: ./proxy
+#   restart: always
+#   ports:
+#     - 80:80
+#     - 443:443
+#   labels:
+#     - "com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy"
+#   volumes:
+#     - certs:/etc/nginx/certs:ro,z
+#     - vhost.d:/etc/nginx/vhost.d:z
+#     - html:/usr/share/nginx/html:z
+#     - dhparam:/etc/nginx/dhparam:z
+#     - /var/run/docker.sock:/tmp/docker.sock:z,ro
+#   networks:
+#     - proxy-tier
+
+# # Note: Letsencrypt companion is an external service. You can find more information about the configuration here:
+# # https://hub.docker.com/r/nginxproxy/acme-companion
+# letsencrypt-companion:
+#   image: nginxproxy/acme-companion
+#   restart: always
+#   environment:
+#     - DEFAULT_EMAIL=
+#   volumes:
+#     - certs:/etc/nginx/certs:z
+#     - acme:/etc/acme.sh:z
+#     - vhost.d:/etc/nginx/vhost.d:z
+#     - html:/usr/share/nginx/html:z
+#     - /var/run/docker.sock:/var/run/docker.sock:z,ro
+#   networks:
+#     - proxy-tier
+#   depends_on:
+#     - proxy
+
+proxy:
+  image: 'jc21/nginx-proxy-manager:latest'
+  restart: unless-stopped
+  ports:
+    # These ports are in format <host-port>:<container-port>
+    - '80:80' # Public HTTP Port
+    - '443:443' # Public HTTPS Port
+    - '81:81' # Admin Web Port
+  # Add any other Stream port you want to expose
+  # - '21:21' # FTP
+
+  #environment:
+  # Uncomment this if you want to change the location of
+  # the SQLite DB file within the container
+  # DB_SQLITE_FILE: "/data/database.sqlite"
+
+  # Uncomment this if IPv6 is not enabled on your host
+  # DISABLE_IPV6: 'true'
+
+  volumes:
+    - ./data:/data
+    - ./letsencrypt:/etc/letsencrypt
+  networks:
+     - proxy-tier
+
+volumes:
+# db: - used a bind mount instead
+# nextcloud: - used a bind mount instead
+# certs:
+# acme:
+# vhost.d:
+# html:
+# dhparam:
 
 networks:
   proxy-tier:
-    external: false

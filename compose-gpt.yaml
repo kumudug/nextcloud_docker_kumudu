@@ -1,0 +1,97 @@
+version: "3.9"
+
+services:
+  nextcloud-db:
+    image: mariadb:11
+    container_name: nextcloud-db
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    environment:
+      - MYSQL_ROOT_PASSWORD=supersecurepassword
+      - MYSQL_PASSWORD=nextcloudpass
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+    volumes:
+      - db_data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    command: redis-server --requirepass redispassword
+    volumes:
+      - redis_data:/data
+
+  nextcloud-app:
+    image: nextcloud:29
+    container_name: nextcloud-app
+    restart: unless-stopped
+    environment:
+      - MYSQL_PASSWORD=nextcloudpass
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_HOST=nextcloud-db
+      - REDIS_HOST=redis
+      - REDIS_HOST_PASSWORD=redispassword
+    volumes:
+      - nextcloud_data:/var/www/html
+    depends_on:
+      - nextcloud-db
+      - redis
+    networks:
+      - proxy
+      - default
+
+  nextcloud-cron:
+    image: nextcloud:29
+    container_name: nextcloud-cron
+    restart: unless-stopped
+    volumes:
+      - nextcloud_data:/var/www/html
+    entrypoint: /cron.sh
+    depends_on:
+      - nextcloud-db
+      - redis
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "81:81"   # NPM admin UI
+      - "443:443"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      - proxy
+
+  static-site1:
+    image: nginx:alpine
+    container_name: static-site1
+    restart: unless-stopped
+    volumes:
+      - ./static-site1:/usr/share/nginx/html:ro
+    networks:
+      - proxy
+
+  static-site2:
+    image: nginx:alpine
+    container_name: static-site2
+    restart: unless-stopped
+    volumes:
+      - ./static-site2:/usr/share/nginx/html:ro
+    networks:
+      - proxy
+
+volumes:
+  db_data:
+  nextcloud_data:
+  redis_data:
+  npm_data:
+  npm_letsencrypt:
+
+networks:
+  proxy:
+    external: false
