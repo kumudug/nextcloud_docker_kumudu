@@ -1,0 +1,1 @@
+* Nextcloud config for docker compose with reverse proxy
