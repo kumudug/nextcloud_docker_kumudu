@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   # Note: MariaDB is an external service. You can find more information about the configuration here:
   # https://hub.docker.com/_/mariadb
@@ -38,9 +36,6 @@ services:
       # - nextcloud:/var/www/html:z
       # NOTE: The `volumes` config of the `cron` and `app` containers must match
       # Add bind mounts and seperate volumes for better control and persistence
-      - ./nextcloud_instalation:/var/www/html:z
-      - ./nextcloud_apps:/var/www/html/custom_apps:z
-      - ./nextcloud_config:/var/www/html/config:z
       - ./nextcloud_data:/var/www/html/data:z
     environment:
       # - VIRTUAL_HOST=nextcloud.kgune.com
@@ -48,6 +43,14 @@ services:
       # - LETSENCRYPT_EMAIL=kum.kgune@gmail.com
       - MYSQL_HOST=db
       - REDIS_HOST=redis
+      # Auto-install admin (one-time, first run)
+      - NEXTCLOUD_ADMIN_USER=nextcloud-admin
+      - NEXTCLOUD_ADMIN_PASSWORD=ChangeMeNow!
+      # Behind reverse proxy / NPM
+      - NEXTCLOUD_TRUSTED_DOMAINS=nextcloud.kgune.com
+      - TRUSTED_PROXIES=npm   # or your proxy container name or subnet, e.g. 172.18.0.0/16
+      - OVERWRITEPROTOCOL=https
+      - OVERWRITEHOST=nextcloud.kgune.com
     env_file:
       - db.env
     depends_on:
@@ -65,9 +68,6 @@ services:
       # - nextcloud:/var/www/html:z
       # NOTE: The `volumes` config of the `cron` and `app` containers must match
       # Add bind mounts and seperate volumes for better control and persistence
-      - ./nextcloud_instalation:/var/www/html:z
-      - ./nextcloud_apps:/var/www/html/custom_apps:z
-      - ./nextcloud_config:/var/www/html/config:z
       - ./nextcloud_data:/var/www/html/data:z
     entrypoint: /cron.sh
     depends_on:
