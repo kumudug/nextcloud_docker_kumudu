@@ -3,7 +3,7 @@ services:
   # https://hub.docker.com/_/mariadb
   db:
     # Note: Check the recommend version here: https://docs.nextcloud.com/server/latest/admin_manual/installation/system_requirements.html#server
-    image: mariadb:11.8
+    image: mariadb:10.11
     command: --transaction-isolation=READ-COMMITTED
     restart: always
     volumes:
@@ -17,18 +17,16 @@ services:
   # Note: Redis is an external service. You can find more information about the configuration here:
   # https://hub.docker.com/_/redis
   redis:
-    # used specific tag. this tells to pull Redis Version: 8.6.2 and Base OS Alpine Version: 3.23
-    image: redis:8.6.2-alpine3.23
+    image: redis:alpine3.22
     restart: always
 
   app:
-    image: nextcloud:32.0.8-apache
+    image: nextcloud:31.0.8-apache
     restart: always
     expose:
       - 80
     volumes:
       # NOTE: The `volumes` config of the `cron` and `app` containers must match
-      - nextcloud_app:/var/www/html
       - ./nextcloud_data:/var/www/html/data:z
     environment:
       - MYSQL_HOST=db
@@ -63,11 +61,10 @@ services:
       - "traefik.http.middlewares.nextcloud-headers.headers.forceSTSHeader=true"
 
   cron:
-    image: nextcloud:32.0.8-apache
+    image: nextcloud:31.0.8-apache
     restart: always
     volumes:
       # NOTE: The `volumes` config of the `cron` and `app` containers must match
-      - nextcloud_app:/var/www/html
       - ./nextcloud_data:/var/www/html/data:z
     entrypoint: /cron.sh
     depends_on:
@@ -79,7 +76,7 @@ services:
     container_name: traefik
     restart: unless-stopped
     command:
-      # API / Dashboard (local access at http://localhost:8082)
+      # API / Dashboard (local access at http://localhost:8080)
       - "--api.insecure=true"
       - "--api.dashboard=true"
       # Entrypoints
@@ -97,9 +94,9 @@ services:
       - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
       - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
     ports:
-      - "80:80"
-      - "443:443"
-      - "127.0.0.1:8082:8080"
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+      - "127.0.0.1:8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik_letsencrypt:/letsencrypt
@@ -115,16 +112,13 @@ services:
     restart: unless-stopped
     networks:
       - proxy-tier
-    # labels:
-    #   - "traefik.enable=true"
-    #   - "traefik.http.routers.static-site.rule=Host(`kgune.com`)"
-    #   - "traefik.http.routers.static-site.entrypoints=websecure"
-    #   - "traefik.http.routers.static-site.tls.certresolver=letsencrypt"
-    #   - "traefik.http.services.static-site.loadbalancer.server.port=80"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.static-site.rule=Host(`kgune.com`)"
+      - "traefik.http.routers.static-site.entrypoints=websecure"
+      - "traefik.http.routers.static-site.tls.certresolver=letsencrypt"
+      - "traefik.http.services.static-site.loadbalancer.server.port=80"
 
 networks:
   proxy-tier:
     external: false
-
-volumes:
-  nextcloud_app:
