@@ -125,6 +125,7 @@ services:
 networks:
   proxy-tier:
     external: false
+    name: proxy-tier   # add this line in order for the dev.myloveofbaking.com to work
 
 volumes:
   nextcloud_app:
